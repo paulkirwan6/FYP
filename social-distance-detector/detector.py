@@ -3,14 +3,17 @@ import cv2
 import imutils
 import os
 import time
-def Check(a,  b):
+
+
+def check(a,  b):
     dist = ((a[0] - b[0]) ** 2 + 550 / ((a[1] + b[1]) / 2) * (a[1] - b[1]) ** 2) ** 0.5
     calibration = (a[1] + b[1]) / 2      
     if 0 < dist < 0.25 * calibration:
         return True
     else:
         return False
-def Setup(yolo):
+		
+def setup(yolo):
     global net, ln, LABELS
     weights = os.path.sep.join([yolo, "yolov3.weights"])
     config = os.path.sep.join([yolo, "yolov3.cfg"])
@@ -19,6 +22,7 @@ def Setup(yolo):
     net = cv2.dnn.readNetFromDarknet(config, weights)
     ln = net.getLayerNames()
     ln = [ln[i[0] - 1] for i in net.getUnconnectedOutLayers()]
+	
 def ImageProcess(image):
     global processedImg
     (H, W) = (None, None)
@@ -59,7 +63,7 @@ def ImageProcess(image):
             status.append(False)
         for i in range(len(center)):
             for j in range(len(center)):
-                close = Check(center[i], center[j])
+                close = check(center[i], center[j])
                 if close:
                     pairs.append([center[i], center[j]])
                     status[i] = True
@@ -76,33 +80,38 @@ def ImageProcess(image):
         for h in pairs:
             cv2.line(frame, tuple(h[0]), tuple(h[1]), (0, 0, 255), 2)
     processedImg = frame.copy()
-create = None
-frameno = 0
-filename = "input/pedestrian_crossing_1.mp4"
-yolo = "yolov3"
-opname = "output/output.avi"
-cap = cv2.VideoCapture(filename)
-time1 = time.time()
-while(True):
-    ret, frame = cap.read()
-    if not ret:
-        break
-    current_img = frame.copy()
-    current_img = imutils.resize(current_img, width=480)
-    video = current_img.shape
-    frameno += 1
-    if(frameno%2 == 0 or frameno == 1):
-        Setup(yolo)
-        ImageProcess(current_img)
-        Frame = processedImg
-        cv2.imshow("Image", Frame)
-        if create is None:
-            fourcc = cv2.VideoWriter_fourcc(*'XVID')
-            create = cv2.VideoWriter(opname, fourcc, 30, (Frame.shape[1], Frame.shape[0]), True)
-    create.write(Frame)
-    if cv2.waitKey(1) & 0xFF == ord('s'):
-        break
-time2 = time.time()
-print("Completed. Total Time Taken: {} minutes".format((time2-time1)/60))
-cap.release()
-cv2.destroyAllWindows()
+	
+def detect():	
+    create = None
+    frameno = 0
+    filename = "input/crowded_corridor.mp4"
+    yolo = "yolov3"
+    opname = "output/output.avi"
+    cap = cv2.VideoCapture(filename)
+    time1 = time.time()
+    while(True):
+        ret, frame = cap.read()
+        if not ret:
+            break
+        current_img = frame.copy()
+        current_img = imutils.resize(current_img, width=480)
+        video = current_img.shape
+        frameno += 1
+        if(frameno%2 == 0 or frameno == 1):
+            setup(yolo)
+            ImageProcess(current_img)
+            Frame = processedImg
+            cv2.imshow("Image", Frame)
+            if create is None:
+                fourcc = cv2.VideoWriter_fourcc(*'XVID')
+                create = cv2.VideoWriter(opname, fourcc, 30, (Frame.shape[1], Frame.shape[0]), True)
+        create.write(Frame)
+        if cv2.waitKey(1) & 0xFF == ord('s'):
+            break
+    time2 = time.time()
+    print("Completed. Total Time Taken: {} minutes".format((time2-time1)/60))
+    cap.release()
+    cv2.destroyAllWindows()
+	
+if __name__ == "__main__":
+	detect()
