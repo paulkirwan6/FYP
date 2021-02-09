@@ -78,9 +78,9 @@ def ImageProcess(image):
     processedImg = frame.copy()
 create = None
 frameno = 0
-filename = "videos/pedestrian_crossing_1.mp4"
+filename = "input/pedestrian_crossing_1.mp4"
 yolo = "yolov3"
-opname = "output.avi"
+opname = "output/output.avi"
 cap = cv2.VideoCapture(filename)
 time1 = time.time()
 while(True):
