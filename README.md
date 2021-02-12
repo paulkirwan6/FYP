@@ -1,6 +1,6 @@
 # FYP
 
-This project's prupose is to detect breaches of covid-19 restrictions and send alerts using a Raspberry-Pi.
+This project's purpose is to detect breaches of Covid-19 restrictions and send alerts using a Raspberry-Pi.
 
 ## Requirements
 Python 3.8
@@ -18,3 +18,4 @@ Move the required Yolov3 files specified in social-distance-detector/yolov3 to t
 ## Models
 
 Pretrained Yolov3 model is used to detect people.
+Haar feature-based cascade classifier used to detect faces.
