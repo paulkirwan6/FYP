@@ -18,4 +18,5 @@ Move the required Yolov3 files specified in social-distance-detector/yolov3 to t
 ## Models
 
 Pretrained Yolov3 model is used to detect people.
+
 Haar feature-based cascade classifier used to detect faces.
