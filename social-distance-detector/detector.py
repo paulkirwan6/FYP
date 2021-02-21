@@ -84,9 +84,9 @@ def ImageProcess(image):
 def detect():	
     create = None
     frameno = 0
-    filename = "input/crowded_corridor.mp4"
+    filename = "input/city_night.mp4"
     yolo = "yolov3"
-    opname = "output/output.avi"
+    opname = "output/output2.avi"
     cap = cv2.VideoCapture(filename)
     time1 = time.time()
     while(True):
@@ -106,8 +106,8 @@ def detect():
                 fourcc = cv2.VideoWriter_fourcc(*'XVID')
                 create = cv2.VideoWriter(opname, fourcc, 30, (Frame.shape[1], Frame.shape[0]), True)
         create.write(Frame)
-        if cv2.waitKey(1) & 0xFF == ord('s'):
-            break
+        if cv2.waitKey(30) & 0xFF == ord('s'): 
+            break # press 'ESC' to quit
     time2 = time.time()
     print("Completed. Total Time Taken: {} minutes".format((time2-time1)/60))
     cap.release()

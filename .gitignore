@@ -140,3 +140,7 @@ cython_debug/
 # YoloV3
 coco.names
 yolov3.*
+
+# Testing videos
+*/input/*
+*/output/*
