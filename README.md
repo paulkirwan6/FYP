@@ -3,17 +3,13 @@
 This project's purpose is to detect breaches of Covid-19 restrictions and send alerts using a Raspberry-Pi.
 
 ## Requirements
-Python 3.8
+Python 3.x (3.8 or less, Tensorflow is not supported in Python 3.9).
 
 ## Getting Started
 
 Create a virtual environment and clone this repository.
 
-Install the required dependencies using the command pip3 install -r requirements.txt
-
-Follow the instructions on https://pjreddie.com/darknet/yolo/ to install darknet and Yolov3.
-
-Move the required Yolov3 files specified in social-distance-detector/yolov3 to this directory.
+Install the required dependencies by running ./setup.sh or with the command pip3 install -r requirements.txt
 
 ## Models
 
