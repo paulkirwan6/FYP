@@ -20,6 +20,7 @@ parts/
 sdist/
 var/
 wheels/
+scripts/
 share/python-wheels/
 *.egg-info/
 .installed.cfg
@@ -138,8 +139,7 @@ dmypy.json
 cython_debug/
 
 # YoloV3
-coco.names
-yolov3.*
+yolov3.weights
 
 # Testing videos
 */input/*
