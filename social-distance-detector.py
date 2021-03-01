@@ -23,7 +23,7 @@ def setup(yolo):
     ln = net.getLayerNames()
     ln = [ln[i[0] - 1] for i in net.getUnconnectedOutLayers()]
 	
-def ImageProcess(image):
+def imageProcess(image):
     global processedImg
     (H, W) = (None, None)
     frame = image.copy()
@@ -81,12 +81,16 @@ def ImageProcess(image):
             cv2.line(frame, tuple(h[0]), tuple(h[1]), (0, 0, 255), 2)
     processedImg = frame.copy()
 	
+	
+def detect_face_mask:
+	
+	
 def detect():	
     create = None
     frameno = 0
-    filename = "zurich.webm"
+    filename = "pedestrian_crossing_1.mp4"
     yolo = "yolov3"
-    opname = "output/zurich.avi"
+    opname = "output/" + filename
     cap = cv2.VideoCapture("input/" + filename)
     time1 = time.time()
     while(True):
@@ -99,7 +103,7 @@ def detect():
         frameno += 1
         if(frameno%2 == 0 or frameno == 1):
             setup(yolo)
-            ImageProcess(current_img)
+            imageProcess(current_img)
             Frame = processedImg
             cv2.imshow("Image", Frame)
             if create is None:
