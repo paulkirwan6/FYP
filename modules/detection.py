@@ -9,6 +9,10 @@ def detect_people(frame, net, ln, personIdx=0):
 	# results
 	(H, W) = frame.shape[:2]
 	results = []
+	
+	# Get heights of people to determine distance
+	heights = []
+	avg_height = 0
 
 	# construct a blob from the input frame and then perform a forward
 	# pass of the YOLO object detector, giving us our bounding boxes
@@ -33,7 +37,7 @@ def detect_people(frame, net, ln, personIdx=0):
 			scores = detection[5:]
 			classID = np.argmax(scores)
 			confidence = scores[classID]
-
+			
 			# filter detections by (1) ensuring that the object
 			# detected was a person and (2) that the minimum
 			# confidence is met
@@ -45,7 +49,8 @@ def detect_people(frame, net, ln, personIdx=0):
 				# height
 				box = detection[0:4] * np.array([W, H, W, H])
 				(centerX, centerY, width, height) = box.astype("int")
-
+				heights.append(height)
+				
 				# use the center (x, y)-coordinates to derive the top
 				# and and left corner of the bounding box
 				x = int(centerX - (width / 2))
@@ -63,6 +68,8 @@ def detect_people(frame, net, ln, personIdx=0):
 
 	# ensure at least one detection exists
 	if len(idxs) > 0:
+		avg_height = sum(heights)/len(heights)
+		
 		# loop over the indexes we are keeping
 		for i in idxs.flatten():
 			# extract the bounding box coordinates
@@ -76,5 +83,5 @@ def detect_people(frame, net, ln, personIdx=0):
 			results.append(r)
 
 	# return the list of results
-	return results
+	return results, avg_height
 	

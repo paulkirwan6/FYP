@@ -12,6 +12,5 @@ NMS_THRESH = 0.3
 # boolean indicating if NVIDIA CUDA GPU should be used
 USE_GPU = False
 
-# define the minimum safe distance (in pixels) that two people can be
-# from each other
-MIN_DISTANCE = 50
+# constant to get social distance in pixels based on person object height
+HEIGHT_TO_DISTANCE_MULTIPLIER = 1.3

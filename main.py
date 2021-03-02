@@ -140,8 +140,11 @@ while True:
 
 	# resize the frame and then detect people (and only people) in it
 	frame = imutils.resize(frame, width=700)
-	results = detect_people(frame, net, ln,
+	results, avg_height = detect_people(frame, net, ln,
 		personIdx=LABELS.index("person"))
+	
+	#Get minimum distance for violation
+	min_distance = config.HEIGHT_TO_DISTANCE_MULTIPLIER*avg_height
 
 	# initialize the set of indexes that violate the minimum social
 	# distance
@@ -161,7 +164,7 @@ while True:
 				# check to see if the distance between any two
 				# centroid pairs is less than the configured number
 				# of pixels
-				if D[i, j] < config.MIN_DISTANCE:
+				if D[i, j] < min_distance:
 					# update our violation set with the indexes of
 					# the centroid pairs
 					violate.add(i)
@@ -191,8 +194,6 @@ while True:
 	cv2.putText(frame, text, (10, frame.shape[0] - 25),
 		cv2.FONT_HERSHEY_SIMPLEX, 0.85, (0, 0, 255), 3)
 		
-################################		
-
 	# detect faces in the frame and determine if they are wearing a
 	# face mask or not
 	(locs, preds) = detect_and_predict_mask(frame, faceNet, maskNet)
@@ -218,16 +219,13 @@ while True:
 			cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 2)
 		cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)	
 		
-		
-#############################################
-
 	# Display the frame
 	cv2.imshow("Frame", frame)
 
-	# press 'q' to quit
-	if cv2.waitKey(30) & 0xFF == ord('q'): 
+	# press 'ESC' to quit
+	if cv2.waitKey(30) & 0xff == 27:
 		break
-
+	
 	# if an output video file path has been supplied and the video
 	# writer has not been initialized, do so now
 	if args["output"] != "" and writer is None:
