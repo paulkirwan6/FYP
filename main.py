@@ -1,99 +1,24 @@
+# USAGE
+# python social_distance_detector.py --input pedestrians.mp4
+# python social_distance_detector.py --input pedestrians.mp4 --output output.avi
+
+# import the necessary packages
+from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
+from tensorflow.keras.preprocessing.image import img_to_array
+from tensorflow.keras.models import load_model
+from modules import config
+from modules.detection import detect_people
+#from modules.detection import detect_and_predict_mask
+from scipy.spatial import distance as dist
 import numpy as np
-import cv2
+import argparse
 import imutils
-import os
 import time
+import cv2
+import os
 
 
-def check(a,  b):
-    dist = ((a[0] - b[0]) ** 2 + 550 / ((a[1] + b[1]) / 2) * (a[1] - b[1]) ** 2) ** 0.5
-    calibration = (a[1] + b[1]) / 2      
-    if 0 < dist < 0.25 * calibration:
-        return True
-    else:
-        return False
-		
-def setup(yolo):
-    global net, ln, LABELS
-    weights = os.path.sep.join([yolo, "yolov3.weights"])
-    config = os.path.sep.join([yolo, "yolov3.cfg"])
-    labelsPath = os.path.sep.join([yolo, "coco.names"])
-    LABELS = open(labelsPath).read().strip().split("\n")  
-    net = cv2.dnn.readNetFromDarknet(config, weights)
-    ln = net.getLayerNames()
-    ln = [ln[i[0] - 1] for i in net.getUnconnectedOutLayers()]
-	
-def imageProcess(image):
-    global processedImg
-    (H, W) = (None, None)
-    frame = image.copy()
-    if W is None or H is None:
-        (H, W) = frame.shape[:2]
-    blob = cv2.dnn.blobFromImage(frame, 1 / 255.0, (416, 416), swapRB=True, crop=False)
-    net.setInput(blob)
-    starttime = time.time()
-    layerOutputs = net.forward(ln)
-    stoptime = time.time()
-    print("Video is Getting Processed at {:.4f} seconds per frame".format((stoptime-starttime))) 
-    confidences = []
-    outline = []
-    for output in layerOutputs:
-        for detection in output:
-            scores = detection[5:]
-            maxi_class = np.argmax(scores)
-            confidence = scores[maxi_class]
-            if LABELS[maxi_class] == "person":
-                if confidence > 0.5:
-                    box = detection[0:4] * np.array([W, H, W, H])
-                    (centerX, centerY, width, height) = box.astype("int")
-                    x = int(centerX - (width / 2))
-                    y = int(centerY - (height / 2))
-                    outline.append([x, y, int(width), int(height)])
-                    confidences.append(float(confidence))
-    box_line = cv2.dnn.NMSBoxes(outline, confidences, 0.5, 0.3)
-    if len(box_line) > 0:
-        flat_box = box_line.flatten()
-        pairs = []
-        center = []
-        status = [] 
-        for i in flat_box:
-            (x, y) = (outline[i][0], outline[i][1])
-            (w, h) = (outline[i][2], outline[i][3])
-            center.append([int(x + w / 2), int(y + h / 2)])
-            status.append(False)
-        for i in range(len(center)):
-            for j in range(len(center)):
-                close = check(center[i], center[j])
-                if close:
-                    pairs.append([center[i], center[j]])
-                    status[i] = True
-                    status[j] = True
-        index = 0
-        for i in flat_box:
-            (x, y) = (outline[i][0], outline[i][1])
-            (w, h) = (outline[i][2], outline[i][3])
-            if status[index] == True:
-                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 150), 2)
-            elif status[index] == False:
-                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            index += 1
-        for h in pairs:
-            cv2.line(frame, tuple(h[0]), tuple(h[1]), (0, 0, 255), 2)
-    processedImg = frame.copy()
-	
-def load_face_mask_model():
-	# load our serialized face detector model from disk
-	print("loading face detector model...")
-	prototxtPath = "models/deploy.prototxt"
-	weightsPath = "models/res10_300x300_ssd_iter_140000.caffemodel"
-	faceNet = cv2.dnn.readNet(prototxtPath, weightsPath)
-
-	# load the face mask detector model from disk
-	model_store_dir= "models/classifier.model"
-	maskNet = load_model(model_store_dir)
-	
-	
-def detect_face_mask(frame, faceNet, maskNet):
+def detect_and_predict_mask(frame, faceNet, maskNet):
 	# grab the dimensions of the frame and then construct a blob
 	# from it
 	(h, w) = frame.shape[:2]
@@ -118,7 +43,7 @@ def detect_face_mask(frame, faceNet, maskNet):
 
 		# filter out weak detections by ensuring the confidence is
 		# greater than the minimum confidence
-		if confidence > args["confidence"]:
+		if confidence > 0.5:
 			# compute the (x, y)-coordinates of the bounding box for
 			# the object
 			box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
@@ -153,38 +78,165 @@ def detect_face_mask(frame, faceNet, maskNet):
 	# return a 2-tuple of the face locations and their corresponding
 	# locations
 	return (locs, preds)
-	
-def detect():	
-    create = None
-    frameno = 0
-    filename = "pedestrian_crossing_1.mp4"
-    yolo = "yolov3"
-    opname = "output/" + filename
-    cap = cv2.VideoCapture("input/" + filename)
-    time1 = time.time()
-    while(True):
-        ret, frame = cap.read()
-        if not ret: 
-            break
-        current_img = frame.copy()
-        current_img = imutils.resize(current_img, width=480)
-        video = current_img.shape
-        frameno += 1
-        if(frameno%2 == 0 or frameno == 1):
-            setup(yolo)
-            imageProcess(current_img)
-            Frame = processedImg
-            cv2.imshow("Image", Frame)
-            if create is None:
-                fourcc = cv2.VideoWriter_fourcc(*'XVID')
-                create = cv2.VideoWriter(opname, fourcc, 30, (Frame.shape[1], Frame.shape[0]), True)
-        create.write(Frame)
-        if cv2.waitKey(30) & 0xFF == ord('s'): 
-            break # press 'ESC' to quit
-    time2 = time.time()
-    print("Completed. Total Time Taken: {} minutes".format((time2-time1)/60))
-    cap.release()
-    cv2.destroyAllWindows()
-	
-if __name__ == "__main__":
-	detect()
+
+
+
+# construct the argument parse and parse the arguments
+ap = argparse.ArgumentParser()
+ap.add_argument("-i", "--input", type=str, default="",
+	help="path to (optional) input video file")
+ap.add_argument("-o", "--output", type=str, default="",
+	help="path to (optional) output video file")
+args = vars(ap.parse_args())
+
+# load the COCO class labels our YOLO model was trained on
+labelsPath = os.path.sep.join([config.YOLO_PATH, "coco.names"])
+LABELS = open(labelsPath).read().strip().split("\n")
+
+# derive the paths to the YOLO weights and model configuration
+weightsPath = os.path.sep.join([config.YOLO_PATH, "yolov3.weights"])
+configPath = os.path.sep.join([config.YOLO_PATH, "yolov3.cfg"])
+
+# load our YOLO object detector trained on COCO dataset (80 classes)
+print("[INFO] loading YOLO from disk...")
+net = cv2.dnn.readNetFromDarknet(configPath, weightsPath)
+
+# check if we are going to use GPU
+if config.USE_GPU:
+	# set CUDA as the preferable backend and target
+	print("[INFO] setting preferable backend and target to CUDA...")
+	net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
+	net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
+
+# determine only the *output* layer names that we need from YOLO
+ln = net.getLayerNames()
+ln = [ln[i[0] - 1] for i in net.getUnconnectedOutLayers()]
+
+# load our serialized face detector model from disk
+print("[INFO] loading face detector model...")
+prototxtPath = os.path.sep.join([config.MODEL_PATH, "deploy.prototxt"])
+weightsPath = os.path.sep.join([config.MODEL_PATH, "res10_300x300_ssd_iter_140000.caffemodel"])
+faceNet = cv2.dnn.readNet(prototxtPath, weightsPath)
+
+# load the face mask detector model from disk
+print("[INFO] loading face mask detector model...")
+mask_model_path = os.path.sep.join([config.MODEL_PATH, "mask_detector.model"])
+maskNet = load_model(mask_model_path)
+
+# initialize the video stream and pointer to output video file
+print("[INFO] accessing video stream...")
+vs = cv2.VideoCapture(args["input"] if args["input"] else 0)
+writer = None
+
+# loop over the frames from the video stream
+while True:
+	# read the next frame from the file
+	(grabbed, frame) = vs.read()
+
+	# if the frame was not grabbed, then we have reached the end
+	# of the stream
+	if not grabbed:
+		break
+
+	# resize the frame and then detect people (and only people) in it
+	frame = imutils.resize(frame, width=700)
+	results = detect_people(frame, net, ln,
+		personIdx=LABELS.index("person"))
+
+	# initialize the set of indexes that violate the minimum social
+	# distance
+	violate = set()
+
+	# ensure there are *at least* two people detections (required in
+	# order to compute our pairwise distance maps)
+	if len(results) >= 2:
+		# extract all centroids from the results and compute the
+		# Euclidean distances between all pairs of the centroids
+		centroids = np.array([r[2] for r in results])
+		D = dist.cdist(centroids, centroids, metric="euclidean")
+
+		# loop over the upper triangular of the distance matrix
+		for i in range(0, D.shape[0]):
+			for j in range(i + 1, D.shape[1]):
+				# check to see if the distance between any two
+				# centroid pairs is less than the configured number
+				# of pixels
+				if D[i, j] < config.MIN_DISTANCE:
+					# update our violation set with the indexes of
+					# the centroid pairs
+					violate.add(i)
+					violate.add(j)
+
+	# loop over the results
+	for (i, (prob, bbox, centroid)) in enumerate(results):
+		# extract the bounding box and centroid coordinates, then
+		# initialize the color of the annotation
+		(startX, startY, endX, endY) = bbox
+		(cX, cY) = centroid
+		color = (0, 255, 0)
+
+		# if the index pair exists within the violation set, then
+		# update the color
+		if i in violate:
+			color = (0, 0, 255)
+
+		# draw (1) a bounding box around the person and (2) the
+		# centroid coordinates of the person,
+		cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)
+		cv2.circle(frame, (cX, cY), 5, color, 1)
+
+	# draw the total number of social distancing violations on the
+	# output frame
+	text = "Social Distancing Violations: {}".format(len(violate))
+	cv2.putText(frame, text, (10, frame.shape[0] - 25),
+		cv2.FONT_HERSHEY_SIMPLEX, 0.85, (0, 0, 255), 3)
+		
+################################		
+
+	# detect faces in the frame and determine if they are wearing a
+	# face mask or not
+	(locs, preds) = detect_and_predict_mask(frame, faceNet, maskNet)
+
+	# loop over the detected face locations and their corresponding
+	# locations
+	for (box, pred) in zip(locs, preds):
+		# unpack the bounding box and predictions
+		(startX, startY, endX, endY) = box
+		(mask, withoutMask) = pred
+
+		# determine the class label and color we'll use to draw
+		# the bounding box and text
+		label = "Mask" if mask > withoutMask else "No Mask"
+		color = (0, 255, 0) if label == "Mask" else (0, 0, 255)
+
+		# include the probability in the label
+		label = "{}: {:.2f}%".format(label, max(mask, withoutMask) * 100)
+
+		# display the label and bounding box rectangle on the output
+		# frame
+		cv2.putText(frame, label, (startX, startY - 10),
+			cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 2)
+		cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)	
+		
+		
+#############################################
+
+	# Display the frame
+	cv2.imshow("Frame", frame)
+
+	# press 'q' to quit
+	if cv2.waitKey(30) & 0xFF == ord('q'): 
+		break
+
+	# if an output video file path has been supplied and the video
+	# writer has not been initialized, do so now
+	if args["output"] != "" and writer is None:
+		# initialize our video writer
+		fourcc = cv2.VideoWriter_fourcc(*"MJPG")
+		writer = cv2.VideoWriter(args["output"], fourcc, 25,
+			(frame.shape[1], frame.shape[0]), True)
+
+	# if the video writer is not None, write the frame to the output
+	# video file
+	if writer is not None:
+		writer.write(frame)
