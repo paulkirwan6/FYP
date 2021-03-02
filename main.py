@@ -83,7 +83,7 @@ while True:
 
 	# initialize the set of indexes that violate the minimum social
 	# distance
-	violate = set()
+	violate_distance = set()
 
 	# ensure there are *at least* two people detections (required in
 	# order to compute our pairwise distance maps)
@@ -102,8 +102,8 @@ while True:
 				if D[i, j] < min_distance:
 					# update our violation set with the indexes of
 					# the centroid pairs
-					violate.add(i)
-					violate.add(j)
+					violate_distance.add(i)
+					violate_distance.add(j)
 
 	# loop over the results
 	for (i, (prob, bbox, centroid)) in enumerate(results):
@@ -115,7 +115,7 @@ while True:
 
 		# if the index pair exists within the violation set, then
 		# update the color
-		if i in violate:
+		if i in violate_distance:
 			color = (0, 0, 255)
 
 		# draw (1) a bounding box around the person and (2) the
@@ -123,15 +123,10 @@ while True:
 		cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)
 		cv2.circle(frame, (cX, cY), 5, color, 1)
 
-	# draw the total number of social distancing violations on the
-	# output frame
-	text = "Social Distancing Violations: {}".format(len(violate))
-	cv2.putText(frame, text, (10, frame.shape[0] - 25),
-		cv2.FONT_HERSHEY_SIMPLEX, 0.85, (0, 0, 255), 3)
-		
 	# detect faces in the frame and determine if they are wearing a
 	# face mask or not
 	(locs, preds) = detect_and_predict_mask(frame, faceNet, maskNet)
+	violate_mask_count = 0
 
 	# loop over the detected face locations and their corresponding
 	# locations
@@ -144,6 +139,8 @@ while True:
 		# the bounding box and text
 		label = "Mask" if mask > withoutMask else "No Mask"
 		color = (0, 255, 0) if label == "Mask" else (0, 0, 255)
+		if label == "No Mask":
+			violate_mask_count += 1
 
 		# include the probability in the label
 		label = "{}: {:.2f}%".format(label, max(mask, withoutMask) * 100)
@@ -153,12 +150,20 @@ while True:
 		cv2.putText(frame, label, (startX, startY - 10),
 			cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 2)
 		cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)	
-		
+
+	# draw the total number of social distancing and face mask violations on the
+	# output frame
+	text = "Social Distancing Violations: {}    Face Mask Violations: {}".format(len(violate_distance),violate_mask_count)
+	cv2.putText(frame, text, (10, frame.shape[0] - 25),
+		cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 3)
+
 	# Display the frame
 	cv2.imshow("Frame", frame)
 
 	# press 'ESC' to quit
 	if cv2.waitKey(30) & 0xff == 27:
+		if writer is not None:
+			writer.write(frame)
 		break
 	
 	# if an output video file path has been supplied and the video
