@@ -9,8 +9,8 @@ MODEL_PATH = "models"
 MIN_CONF = 0.3
 NMS_THRESH = 0.3
 
-# boolean indicating if NVIDIA CUDA GPU should be used
-USE_GPU = False
+# initialise miminum probability to filter out weak face/mask detections
+MASK_MIN_CONF = 0.5
 
 # constant to get social distance in pixels based on person object height
 HEIGHT_TO_DISTANCE_MULTIPLIER = 1.3

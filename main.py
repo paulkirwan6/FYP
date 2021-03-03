@@ -1,12 +1,13 @@
 # USAGE
-# python social_distance_detector.py --input pedestrians.mp4
-# python social_distance_detector.py --input pedestrians.mp4 --output output.avi
+# python social_distance_detector.py -i input/input_video.mp4
+# python social_distance_detector.py -i pedestrians.mp4 -o output/output_video.avi
 
-# import the necessary packages
 from tensorflow.keras.models import load_model
 from modules import config
 from modules.detection import detect_people
 from modules.detection import detect_and_predict_mask
+from modules.alert import new_violation_alert
+from modules.alert import update_figures_alert
 from scipy.spatial import distance as dist
 import numpy as np
 import argparse
@@ -36,13 +37,6 @@ configPath = os.path.sep.join([config.YOLO_PATH, "yolov3.cfg"])
 print("[INFO] loading YOLO from disk...")
 net = cv2.dnn.readNetFromDarknet(configPath, weightsPath)
 
-# check if we are going to use GPU
-if config.USE_GPU:
-	# set CUDA as the preferable backend and target
-	print("[INFO] setting preferable backend and target to CUDA...")
-	net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
-	net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
-
 # determine only the *output* layer names that we need from YOLO
 ln = net.getLayerNames()
 ln = [ln[i[0] - 1] for i in net.getUnconnectedOutLayers()]
@@ -62,6 +56,10 @@ maskNet = load_model(mask_model_path)
 print("[INFO] accessing video stream...")
 vs = cv2.VideoCapture(args["input"] if args["input"] else 0)
 writer = None
+
+# Initialise violations
+prev_violate_distance_count = 0
+prev_violate_mask_count = 0
 
 # loop over the frames from the video stream
 while True:
@@ -153,9 +151,23 @@ while True:
 
 	# draw the total number of social distancing and face mask violations on the
 	# output frame
-	text = "Social Distancing Violations: {}    Face Mask Violations: {}".format(len(violate_distance),violate_mask_count)
+	violate_distance_count = len(violate_distance)
+	text = "Social Distancing Violations: {}    Face Mask Violations: {}".format(violate_distance_count, violate_mask_count)
 	cv2.putText(frame, text, (10, frame.shape[0] - 25),
 		cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 3)
+
+	# Send alert pdate the total number of violations
+	update_figures_alert(violate_distance_count, violate_mask_count)
+
+	# Compare previous violations to new violations and alert if there is an increase
+	if (violate_distance_count > prev_violate_distance_count):
+		new_violation_alert("distance_violation")
+	if (violate_mask_count > prev_violate_mask_count):
+		new_violation_alert("facemask_violation")
+
+	# Initialise prev violations for next frame
+	prev_violate_distance_count = violate_distance_count
+	prev_violate_mask_count = violate_mask_count
 
 	# Display the frame
 	cv2.imshow("Frame", frame)
@@ -165,7 +177,7 @@ while True:
 		if writer is not None:
 			writer.write(frame)
 		break
-	
+
 	# if an output video file path has been supplied and the video
 	# writer has not been initialized, do so now
 	if args["output"] != "" and writer is None:
