@@ -15,8 +15,6 @@ import imutils
 import time
 import cv2
 import os
-import sys
-import keyboard
 
 
 # construct the argument parse and parse the arguments
@@ -180,13 +178,7 @@ while True:
 
 	# press 'ESC' to quit
 	if cv2.waitKey(30) & 0xff == 27:
-	print("Esc pressed: shutting down program...")
-		if writer is not None:
-			writer.write(frame)
-		break
-		
-	if keyboard.is_pressed('Esc'):
-	print("Esc pressed: shutting down program...")
+		print("Esc pressed: shutting down program...")
 		if writer is not None:
 			writer.write(frame)
 		break
