@@ -15,6 +15,8 @@ import imutils
 import time
 import cv2
 import os
+import sys
+import keyboard
 
 
 # construct the argument parse and parse the arguments
@@ -23,6 +25,8 @@ ap.add_argument("-i", "--input", type=str, default="",
 	help="path to (optional) input video file")
 ap.add_argument("-o", "--output", type=str, default="",
 	help="path to (optional) output video file")
+ap.add_argument("-hl", "--headless", type=str, default="false",
+	help="path to disable displaying the screen")
 args = vars(ap.parse_args())
 
 # load the COCO class labels our YOLO model was trained on
@@ -169,11 +173,20 @@ while True:
 	prev_violate_distance_count = violate_distance_count
 	prev_violate_mask_count = violate_mask_count
 
-	# Display the frame
-	cv2.imshow("Frame", frame)
+	# Check that headless mode has not been selected
+	if args["headless"] == "false":
+		# Display the frame
+		cv2.imshow("Frame", frame)
 
 	# press 'ESC' to quit
 	if cv2.waitKey(30) & 0xff == 27:
+	print("Esc pressed: shutting down program...")
+		if writer is not None:
+			writer.write(frame)
+		break
+		
+	if keyboard.is_pressed('Esc'):
+	print("Esc pressed: shutting down program...")
 		if writer is not None:
 			writer.write(frame)
 		break
