@@ -6,7 +6,6 @@ from tensorflow.keras.models import load_model
 from modules import config
 from modules.detection import detect_people
 from modules.detection import detect_and_predict_mask
-from modules.alert import new_violation_alert
 from modules.alert import update_figures_alert
 from scipy.spatial import distance as dist
 import numpy as np
@@ -158,18 +157,8 @@ while True:
 	cv2.putText(frame, text, (10, frame.shape[0] - 25),
 		cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 3)
 
-	# Send alert pdate the total number of violations
+	# Send alert to update the total number of violations
 	update_figures_alert(violate_distance_count, violate_mask_count)
-
-	# Compare previous violations to new violations and alert if there is an increase
-	if (violate_distance_count > prev_violate_distance_count):
-		new_violation_alert("distance_violation")
-	if (violate_mask_count > prev_violate_mask_count):
-		new_violation_alert("facemask_violation")
-
-	# Initialise prev violations for next frame
-	prev_violate_distance_count = violate_distance_count
-	prev_violate_mask_count = violate_mask_count
 
 	# Check that headless mode has not been selected
 	if args["headless"] == "false":

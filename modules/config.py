@@ -1,3 +1,9 @@
+# Path to host Firebase
+FIREBASE_PATH = "https://fypdatabase-7f67a-default-rtdb.europe-west1.firebasedatabase.app/"
+
+# Path to Child Node in Firebase
+FIREBASE_LOCAL = "/Local/"
+
 # base path to YOLO directory
 YOLO_PATH = "yolov3"
 
