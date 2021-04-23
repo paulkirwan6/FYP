@@ -56,11 +56,8 @@ maskNet = load_model(mask_model_path)
 # initialize the video stream and pointer to output video file
 print("[INFO] accessing video stream...")
 vs = cv2.VideoCapture(args["input"] if args["input"] else 0)
+vs.set(cv2.CAP_PROP_POS_FRAMES, 0)
 writer = None
-
-# Initialise violations
-prev_violate_distance_count = 0
-prev_violate_mask_count = 0
 
 # loop over the frames from the video stream
 while True:
@@ -72,7 +69,7 @@ while True:
 	if not grabbed:
 		break
 
-	# resize the frame and then detect people (and only people) in it
+	# resize the frame and then detect people in it
 	frame = imutils.resize(frame, width=700)
 	results, avg_height = detect_people(frame, net, ln,
 		personIdx=LABELS.index("person"))
