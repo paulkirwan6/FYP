@@ -10,20 +10,25 @@ from modules.alert import update_figures_alert
 from scipy.spatial import distance as dist
 import numpy as np
 import argparse
+from picamera import PiCamera
+from imutils.video.pivideostream import PiVideoStream
+from imutils.video import FPS
 import imutils
 import time
 import cv2
 import os
 
 
-# parse the arguments
+# Parse the arguments
 ap = argparse.ArgumentParser()
 ap.add_argument("-i", "--input", type=str, default="",
 	help="path to (optional) input video file")
 ap.add_argument("-o", "--output", type=str, default="",
 	help="path to (optional) output video file")
 ap.add_argument("-hl", "--headless", type=str, default="false",
-	help="path to disable displaying the screen")
+	help="disable displaying the screen")
+ap.add_argument("-fr", "--framerate", type=str, default="false",
+	help="framerate for raspberry pi")	
 args = vars(ap.parse_args())
 
 # load the COCO class labels our YOLO model was trained on
@@ -56,8 +61,19 @@ maskNet = load_model(mask_model_path)
 # initialize the video stream and pointer to output video file
 print("[INFO] accessing video stream...")
 vs = cv2.VideoCapture(args["input"] if args["input"] else 0)
-vs.set(cv2.CAP_PROP_POS_FRAMES, 0)
 writer = None
+
+# Framerate (Pi only)
+if args["framerate"]:
+	camera = PiCamera()
+	camera.resolution = (320, 240)
+	camera.framerate = args["framerate"]
+	rawCapture = PiRGBArray(camera, size=(320, 240))
+	stream = camera.capture_continuous(rawCapture, format="bgr",
+		use_video_port=True)
+
+
+fps = FPS().start()
 
 # loop over the frames from the video stream
 while True:
@@ -70,7 +86,7 @@ while True:
 		break
 
 	# resize the frame and then detect people in it
-	frame = imutils.resize(frame, width=700)
+	frame = imutils.resize(frame, width=680)
 	results, avg_height = detect_people(frame, net, ln,
 		personIdx=LABELS.index("person"))
 	
@@ -154,7 +170,7 @@ while True:
 	cv2.putText(frame, text, (10, frame.shape[0] - 25),
 		cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 3)
 
-	# Send alert to update the total number of violations
+	# Send alert to update the total number of violations in database
 	update_figures_alert(violate_distance_count, violate_mask_count)
 
 	# Check that headless mode has not been selected
@@ -181,3 +197,15 @@ while True:
 	# video file
 	if writer is not None:
 		writer.write(frame)
+
+# stop the timer and display FPS information
+fps.stop()
+print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
+print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
+
+# cleanup
+cv2.destroyAllWindows()
+vs.stop()
+stream.close()
+rawCapture.close()
+camera.close()
