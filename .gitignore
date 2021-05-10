@@ -146,3 +146,6 @@ yolov3.weights
 # Testing videos
 */input/*
 */output/*
+
+# Custom dataset
+dataset/
