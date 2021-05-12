@@ -24,6 +24,8 @@ ap.add_argument("-o", "--output", type=str, default="",
 	help="path to (optional) output video file")
 ap.add_argument("-hl", "--headless", type=str, default="false",
 	help="path to disable displaying the screen")
+ap.add_argument("-s", "--skip", type=str, default="1",
+	help="skip frames for better performance")	
 args = vars(ap.parse_args())
 
 # load the COCO class labels our YOLO model was trained on
@@ -55,129 +57,138 @@ maskNet = load_model(mask_model_path)
 
 # initialize the video stream and pointer to output video file
 print("[INFO] accessing video stream...")
-vs = cv2.VideoCapture(args["input"] if args["input"] else 0)
+vs = cv2.VideoCapture(args["input"] if args["input"] else 0, cv2.CAP_DSHOW)
 vs.set(cv2.CAP_PROP_POS_FRAMES, 0)
 writer = None
 
+frame_count = 1
+frame_skip = int(args["skip"])
+
+
 # loop over the frames from the video stream
 while True:
+
 	# read the next frame from the file
 	(grabbed, frame) = vs.read()
+	frame_count += 1;
 
 	# if the frame was not grabbed, then we have reached the end
 	# of the stream
 	if not grabbed:
-		break
+			break
 
-	# resize the frame and then detect people in it
-	frame = imutils.resize(frame, width=700)
-	results, avg_height = detect_people(frame, net, ln,
-		personIdx=LABELS.index("person"))
-	
-	#Get minimum distance for violation
-	min_distance = config.HEIGHT_TO_DISTANCE_MULTIPLIER*avg_height
+	if (frame_count % frame_skip == 0):
+		
 
-	# initialize the set of indexes that violate the minimum social
-	# distance
-	violate_distance = set()
+		# resize the frame and then detect people in it
+		frame = imutils.resize(frame, width=700)
+		results, avg_height = detect_people(frame, net, ln,
+			personIdx=LABELS.index("person"))
+		
+		#Get minimum distance for violation
+		min_distance = config.HEIGHT_TO_DISTANCE_MULTIPLIER*avg_height
 
-	# ensure there are *at least* two people detections (required in
-	# order to compute our pairwise distance maps)
-	if len(results) >= 2:
-		# extract all centroids from the results and compute the
-		# Euclidean distances between all pairs of the centroids
-		centroids = np.array([r[2] for r in results])
-		D = dist.cdist(centroids, centroids, metric="euclidean")
+		# initialize the set of indexes that violate the minimum social
+		# distance
+		violate_distance = set()
 
-		# loop over the upper triangular of the distance matrix
-		for i in range(0, D.shape[0]):
-			for j in range(i + 1, D.shape[1]):
-				# check to see if the distance between any two
-				# centroid pairs is less than the configured number
-				# of pixels
-				if D[i, j] < min_distance:
-					# update our violation set with the indexes of
-					# the centroid pairs
-					violate_distance.add(i)
-					violate_distance.add(j)
+		# ensure there are *at least* two people detections (required in
+		# order to compute our pairwise distance maps)
+		if len(results) >= 2:
+			# extract all centroids from the results and compute the
+			# Euclidean distances between all pairs of the centroids
+			centroids = np.array([r[2] for r in results])
+			D = dist.cdist(centroids, centroids, metric="euclidean")
 
-	# loop over the results
-	for (i, (prob, bbox, centroid)) in enumerate(results):
-		# extract the bounding box and centroid coordinates, then
-		# initialize the color of the annotation
-		(startX, startY, endX, endY) = bbox
-		(cX, cY) = centroid
-		color = (0, 255, 0)
+			# loop over the upper triangular of the distance matrix
+			for i in range(0, D.shape[0]):
+				for j in range(i + 1, D.shape[1]):
+					# check to see if the distance between any two
+					# centroid pairs is less than the configured number
+					# of pixels
+					if D[i, j] < min_distance:
+						# update our violation set with the indexes of
+						# the centroid pairs
+						violate_distance.add(i)
+						violate_distance.add(j)
 
-		# if the index pair exists within the violation set, then
-		# update the color
-		if i in violate_distance:
-			color = (0, 0, 255)
+		# loop over the results
+		for (i, (prob, bbox, centroid)) in enumerate(results):
+			# extract the bounding box and centroid coordinates, then
+			# initialize the color of the annotation
+			(startX, startY, endX, endY) = bbox
+			(cX, cY) = centroid
+			color = (0, 255, 0)
 
-		# draw (1) a bounding box around the person and (2) the
-		# centroid coordinates of the person,
-		cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)
-		cv2.circle(frame, (cX, cY), 5, color, 1)
+			# if the index pair exists within the violation set, then
+			# update the color
+			if i in violate_distance:
+				color = (0, 0, 255)
 
-	# detect faces in the frame and determine if they are wearing a
-	# face mask or not
-	(locs, preds) = detect_and_predict_mask(frame, faceNet, maskNet)
-	violate_mask_count = 0
+			# draw (1) a bounding box around the person and (2) the
+			# centroid coordinates of the person,
+			cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)
+			cv2.circle(frame, (cX, cY), 5, color, 1)
 
-	# loop over the detected face locations and their corresponding
-	# locations
-	for (box, pred) in zip(locs, preds):
-		# unpack the bounding box and predictions
-		(startX, startY, endX, endY) = box
-		(mask, withoutMask) = pred
+		# detect faces in the frame and determine if they are wearing a
+		# face mask or not
+		(locs, preds) = detect_and_predict_mask(frame, faceNet, maskNet)
+		violate_mask_count = 0
 
-		# determine the class label and color we'll use to draw
-		# the bounding box and text
-		label = "Mask" if mask > withoutMask else "No Mask"
-		color = (0, 255, 0) if label == "Mask" else (0, 0, 255)
-		if label == "No Mask":
-			violate_mask_count += 1
+		# loop over the detected face locations and their corresponding
+		# locations
+		for (box, pred) in zip(locs, preds):
+			# unpack the bounding box and predictions
+			(startX, startY, endX, endY) = box
+			(mask, withoutMask) = pred
 
-		# include the probability in the label
-		label = "{}: {:.2f}%".format(label, max(mask, withoutMask) * 100)
+			# determine the class label and color we'll use to draw
+			# the bounding box and text
+			label = "Mask" if mask > withoutMask else "No Mask"
+			color = (0, 255, 0) if label == "Mask" else (0, 0, 255)
+			if label == "No Mask":
+				violate_mask_count += 1
 
-		# display the label and bounding box rectangle on the output
-		# frame
-		cv2.putText(frame, label, (startX, startY - 10),
-			cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 2)
-		cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)	
+			# include the probability in the label
+			label = "{}: {:.2f}%".format(label, max(mask, withoutMask) * 100)
 
-	# draw the total number of social distancing and face mask violations on the
-	# output frame
-	violate_distance_count = len(violate_distance)
-	text = "Social Distancing Violations: {}    Face Mask Violations: {}".format(violate_distance_count, violate_mask_count)
-	cv2.putText(frame, text, (10, frame.shape[0] - 25),
-		cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 3)
+			# display the label and bounding box rectangle on the output
+			# frame
+			cv2.putText(frame, label, (startX, startY - 10),
+				cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 2)
+			cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)	
 
-	# Send alert to update the total number of violations
-	update_figures_alert(violate_distance_count, violate_mask_count)
+		# draw the total number of social distancing and face mask violations on the
+		# output frame
+		violate_distance_count = len(violate_distance)
+		text = "Social Distancing Violations: {}    Face Mask Violations: {}".format(violate_distance_count, violate_mask_count)
+		cv2.putText(frame, text, (10, frame.shape[0] - 25),
+			cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 3)
 
-	# Check that headless mode has not been selected
-	if args["headless"] == "false":
-		# Display the frame
-		cv2.imshow("Frame", frame)
+		# Send alert to update the total number of violations
+		update_figures_alert(violate_distance_count, violate_mask_count)
 
-	# press 'ESC' to quit
-	if cv2.waitKey(30) & 0xff == 27:
-		print("Esc pressed: shutting down program...")
+		# Check that headless mode has not been selected
+		if args["headless"] == "false":
+			# Display the frame
+			cv2.imshow("Frame", frame)
+
+		# press 'ESC' to quit
+		if cv2.waitKey(30) & 0xff == 27:
+			print("Esc pressed: shutting down program...")
+			if writer is not None:
+				writer.write(frame)
+			break
+
+		# if an output video file path has been supplied and the video
+		# writer has not been initialized, do so now
+		if args["output"] != "" and writer is None:
+			# initialize our video writer
+			fourcc = cv2.VideoWriter_fourcc(*"MJPG")
+			writer = cv2.VideoWriter(args["output"], fourcc, 25,
+				(frame.shape[1], frame.shape[0]), True)
+
+		# if the video writer is not None, write the frame to the output
+		# video file
 		if writer is not None:
 			writer.write(frame)
-		break
-
-	# if an output video file path has been supplied and the video
-	# writer has not been initialized, do so now
-	if args["output"] != "" and writer is None:
-		# initialize our video writer
-		fourcc = cv2.VideoWriter_fourcc(*"MJPG")
-		writer = cv2.VideoWriter(args["output"], fourcc, 25,
-			(frame.shape[1], frame.shape[0]), True)
-
-	# if the video writer is not None, write the frame to the output
-	# video file
-	if writer is not None:
-		writer.write(frame)
