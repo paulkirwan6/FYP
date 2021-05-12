@@ -1,6 +1,6 @@
 # USAGE
-# python social_distance_detector.py -i input/input_video.mp4
-# python social_distance_detector.py -i pedestrians.mp4 -o output/output_video.avi
+# python main.py
+# python main.py -i input/input_video.mp4 -o output/output_video.avi
 
 from tensorflow.keras.models import load_model
 from modules import config
