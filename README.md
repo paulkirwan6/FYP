@@ -1,6 +1,7 @@
 # FYP
 
 This project's purpose is to detect breaches of Covid-19 restrictions and send alerts using a Raspberry-Pi.
+It is accompanied by an app: https://github.com/paulkirwan6/FYPAndroidApp
 
 ## Requirements
 Python 3.x (3.8 or less, Tensorflow is not supported in Python 3.9).
