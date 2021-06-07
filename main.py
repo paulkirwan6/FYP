@@ -1,6 +1,7 @@
 # USAGE
 # python main.py
 # python main.py -i input/input_video.mp4 -o output/output_video.avi
+# python main.py -s 30
 
 from tensorflow.keras.models import load_model
 from modules import config
@@ -28,7 +29,7 @@ ap.add_argument("-s", "--skip", type=str, default="1",
 	help="skip frames for better performance")	
 args = vars(ap.parse_args())
 
-# load the COCO class labels our YOLO model was trained on
+# load the COCO class labels the YOLO model was trained on
 labelsPath = os.path.sep.join([config.YOLO_PATH, "coco.names"])
 LABELS = open(labelsPath).read().strip().split("\n")
 
@@ -36,7 +37,7 @@ LABELS = open(labelsPath).read().strip().split("\n")
 weightsPath = os.path.sep.join([config.YOLO_PATH, "yolov3.weights"])
 configPath = os.path.sep.join([config.YOLO_PATH, "yolov3.cfg"])
 
-# load our YOLO object detector trained on COCO dataset (80 classes)
+# load the YOLO object detector trained on COCO dataset (80 classes)
 print("[INFO] loading YOLO from disk...")
 net = cv2.dnn.readNetFromDarknet(configPath, weightsPath)
 
@@ -44,7 +45,7 @@ net = cv2.dnn.readNetFromDarknet(configPath, weightsPath)
 ln = net.getLayerNames()
 ln = [ln[i[0] - 1] for i in net.getUnconnectedOutLayers()]
 
-# load our serialized face detector model from disk
+# load the serialized face detector model from disk
 print("[INFO] loading face detector model...")
 prototxtPath = os.path.sep.join([config.MODEL_PATH, "deploy.prototxt"])
 weightsPath = os.path.sep.join([config.MODEL_PATH, "res10_300x300_ssd_iter_140000.caffemodel"])
@@ -55,13 +56,13 @@ print("[INFO] loading face mask detector model...")
 mask_model_path = os.path.sep.join([config.MODEL_PATH, "mask_detector.model"])
 maskNet = load_model(mask_model_path)
 
-# initialize the video stream and pointer to output video file
+# initialize the video stream and pointer to output video file or the camera if it is not specified
 print("[INFO] accessing video stream...")
 vs = cv2.VideoCapture(args["input"] if args["input"] else 0, cv2.CAP_DSHOW)
-vs.set(cv2.CAP_PROP_POS_FRAMES, 0)
 writer = None
 
-frame_count = 1
+# initilise the frame we are processing to compare with what frames we need to ignore
+frame_count = 0
 frame_skip = int(args["skip"])
 
 
@@ -75,25 +76,29 @@ while True:
 	# if the frame was not grabbed, then we have reached the end
 	# of the stream
 	if not grabbed:
-			break
-
-	if (frame_count % frame_skip == 0):
+		break
 		
+	# press 'ESC' to quit
+	if cv2.waitKey(30) & 0xff == 27:
+		print("Esc pressed: shutting down program...")
+		break	
 
+	# ignore every "skipped" frame
+	if (frame_count % frame_skip == 0):
+	
 		# resize the frame and then detect people in it
 		frame = imutils.resize(frame, width=700)
 		results, avg_height = detect_people(frame, net, ln,
 			personIdx=LABELS.index("person"))
 		
-		#Get minimum distance for violation
+		#Get the minimum distance for violation
 		min_distance = config.HEIGHT_TO_DISTANCE_MULTIPLIER*avg_height
 
 		# initialize the set of indexes that violate the minimum social
 		# distance
 		violate_distance = set()
 
-		# ensure there are *at least* two people detections (required in
-		# order to compute our pairwise distance maps)
+		# ensure there are at least 2 person detections
 		if len(results) >= 2:
 			# extract all centroids from the results and compute the
 			# Euclidean distances between all pairs of the centroids
@@ -104,8 +109,7 @@ while True:
 			for i in range(0, D.shape[0]):
 				for j in range(i + 1, D.shape[1]):
 					# check to see if the distance between any two
-					# centroid pairs is less than the configured number
-					# of pixels
+					# centroid pairs is less than the min allowed distance
 					if D[i, j] < min_distance:
 						# update our violation set with the indexes of
 						# the centroid pairs
@@ -133,6 +137,8 @@ while True:
 		# detect faces in the frame and determine if they are wearing a
 		# face mask or not
 		(locs, preds) = detect_and_predict_mask(frame, faceNet, maskNet)
+		
+		# violations must be reset for each frame
 		violate_mask_count = 0
 
 		# loop over the detected face locations and their corresponding
@@ -172,13 +178,6 @@ while True:
 		if args["headless"] == "false":
 			# Display the frame
 			cv2.imshow("Frame", frame)
-
-		# press 'ESC' to quit
-		if cv2.waitKey(30) & 0xff == 27:
-			print("Esc pressed: shutting down program...")
-			if writer is not None:
-				writer.write(frame)
-			break
 
 		# if an output video file path has been supplied and the video
 		# writer has not been initialized, do so now

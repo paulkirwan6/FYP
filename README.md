@@ -15,4 +15,8 @@ Install the required dependencies by running ./setup.sh or with the command pip3
 
 Pretrained Yolov3 model is used to detect people.
 
-Haar feature-based cascade classifier used to detect faces.
+DNN OpenCV feature-based classifier used to detect faces.
+
+
+
+

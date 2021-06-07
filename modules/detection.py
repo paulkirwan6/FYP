@@ -1,8 +1,8 @@
 from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 from tensorflow.keras.preprocessing.image import img_to_array
 from .config import NMS_THRESH
-from .config import MIN_CONF
-from .config import MASK_MIN_CONF
+from .config import PERSON_MIN_CONF
+from .config import FACE_MIN_CONF
 import numpy as np
 import cv2
 
@@ -43,7 +43,7 @@ def detect_people(frame, net, ln, personIdx=0):
 			# filter detections by (1) ensuring that the object
 			# detected was a person and (2) that the minimum
 			# confidence is met
-			if classID == personIdx and confidence > MIN_CONF:
+			if classID == personIdx and confidence > PERSON_MIN_CONF:
 				# scale the bounding box coordinates back relative to
 				# the size of the image, keeping in mind that YOLO
 				# actually returns the center (x, y)-coordinates of
@@ -66,7 +66,7 @@ def detect_people(frame, net, ln, personIdx=0):
 
 	# apply non-maxima suppression to suppress weak, overlapping
 	# bounding boxes
-	idxs = cv2.dnn.NMSBoxes(boxes, confidences, MIN_CONF, NMS_THRESH)
+	idxs = cv2.dnn.NMSBoxes(boxes, confidences, PERSON_MIN_CONF, NMS_THRESH)
 
 	# ensure at least one detection exists
 	if len(idxs) > 0:
@@ -84,7 +84,7 @@ def detect_people(frame, net, ln, personIdx=0):
 			r = (confidences[i], (x, y, x + w, y + h), centroids[i])
 			results.append(r)
 
-	# return the list of results
+	# return the list of results and avg height
 	return results, avg_height
 	
 def detect_and_predict_mask(frame, faceNet, maskNet):
@@ -112,7 +112,7 @@ def detect_and_predict_mask(frame, faceNet, maskNet):
 
 		# filter out weak detections by ensuring the confidence is
 		# greater than the minimum confidence
-		if confidence > MASK_MIN_CONF:
+		if confidence > FACE_MIN_CONF:
 			# compute the (x, y)-coordinates of the bounding box for
 			# the object
 			box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
